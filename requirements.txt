@@ -1,0 +1,6 @@
+# Core AutoGen packages
+pyautogen
+openai
+python-dotenv
+sentence-transformers
+pinecone
