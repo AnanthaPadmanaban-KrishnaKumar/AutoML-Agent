@@ -3,7 +3,6 @@ import json
 import logging
 from typing import List, Dict, Any
 
-# Type hint for agents without circular import
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from autogen import Agent
@@ -80,15 +79,13 @@ def execute_python_code(code: str, planner_agent: 'Agent', executor_agent: 'Agen
         logger.error("Tool 'execute_python_code': Invalid 'code' argument.")
         return "ACTION_FAILED: Input 'code' must be a string."
 
-    # Basic cleaning of markdown - enhance if needed
     cleaned_code = code.strip()
     if cleaned_code.startswith("```python"):
         cleaned_code = cleaned_code[len("```python"):].strip()
     if cleaned_code.endswith("```"):
         cleaned_code = cleaned_code[:-len("```")].strip()
-    # Handle potential plain ``` blocks
     if cleaned_code.startswith("```") and cleaned_code.endswith("```"):
-         if len(cleaned_code) > 6: # Ensure it's not just ``````
+         if len(cleaned_code) > 
               cleaned_code = cleaned_code[3:-3].strip()
 
     if not cleaned_code:

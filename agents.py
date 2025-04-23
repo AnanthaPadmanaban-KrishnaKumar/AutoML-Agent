@@ -22,7 +22,6 @@ from config import (
     EMBEDDING_MODEL, PINECONE_TOP_K,
     CODE_EXECUTION_DIR, CODE_EXEC_TIMEOUT, logger
 )
-# Note: Services are imported to be passed during agent creation, not used directly at module level usually.
 from services import pinecone_index, openai_client
 
 # --- Custom Memory Agent Definition ---
@@ -44,7 +43,6 @@ class PineconeMemoryAgent(Agent):
         self.embedding_client = embedding_client_instance
         self.embedding_model = embedding_model
         self.top_k = top_k
-        # Register the message handler
         self.register_reply(Agent, self._handle_request_message, position=1)
         logger.info(f"PineconeMemoryAgent '{self.name}' initialized (Embeddings: {self.embedding_model}, TopK: {self.top_k}).")
 
@@ -57,11 +55,10 @@ class PineconeMemoryAgent(Agent):
         try:
             response = self.embedding_client.embeddings.create(input=processed_texts, model=self.embedding_model)
             embedding_map = {text: data.embedding for text, data in zip(processed_texts, response.data)}
-            # Return embeddings in the order of the original valid texts
             return [embedding_map[text] for text in processed_texts]
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}", exc_info=True)
-            raise # Re-raise for the caller to handle
+            raise 
 
     def _handle_store_request(self, payload: Dict[str, Any], sender: Agent) -> None:
         """Handles internal logic for storing text data."""
@@ -95,7 +92,6 @@ class PineconeMemoryAgent(Agent):
         """Handles internal logic for retrieving text data."""
         query = payload.get("query", "").strip()
         if not query:
-             # This validation should ideally happen before calling this internal method
              logger.error(f"RETRIEVE request from {sender.name} had empty query.")
              self.send(message="ACTION_FAILED: RETRIEVE requires a non-empty 'query'.", receiver=sender)
              return
@@ -124,15 +120,13 @@ class PineconeMemoryAgent(Agent):
     def _handle_request_message(self, messages: Optional[List[Dict]] = None, sender: Optional[Agent] = None, config: Optional[Any] = None) -> Tuple[bool, Optional[Any]]:
         """Parses incoming JSON messages and dispatches to specific handlers."""
         # Check if message is intended for this agent and is valid
-        if not sender or not messages or self.name != messages[-1].get("recipient", self.name): # Check recipient explicitly
-            return False, None # Message not intended for this agent or invalid structure
-
+        if not sender or not messages or self.name != messages[-1].get("recipient", self.name):
+            return False, None 
         last_message = messages[-1]
         content = last_message.get("content", "")
-        action, payload, error_msg = None, None, None # Initialize payload as None
+        action, payload, error_msg = None, None, None
 
         logger.debug(f"MemoryAgent received message from {sender.name}: {content[:200]}...")
-
         # --- Parse and Validate JSON Request ---
         try:
             data = json.loads(content)
@@ -140,7 +134,7 @@ class PineconeMemoryAgent(Agent):
                 error_msg = "ACTION_FAILED: Request must be a JSON object."
             else:
                 action = data.get("action")
-                payload = data.get("payload") # Can be anything initially
+                payload = data.get("payload")
                 if not action or action not in ["STORE", "RETRIEVE"]:
                      error_msg = f"ACTION_FAILED: Invalid or missing 'action'. Must be 'STORE' or 'RETRIEVE'."
                 elif not isinstance(payload, dict):
@@ -161,27 +155,26 @@ class PineconeMemoryAgent(Agent):
                     error_msg = "ACTION_FAILED: STORE 'payload.texts' must contain at least one non-empty string."
                 else:
                     self._handle_store_request(payload, sender)
-                    return True, None # Handled internally
+                    return True, None 
 
             elif action == "RETRIEVE":
                 query = payload.get("query")
                 if not isinstance(query, str) or not query.strip():
                     error_msg = "ACTION_FAILED: RETRIEVE 'payload.query' must be a non-empty string."
                 else:
-                    payload["query"] = query.strip() # Use cleaned query
+                    payload["query"] = query.strip()
                     self._handle_retrieve_request(payload, sender)
-                    return True, None # Handled internally
+                    return True, None 
 
         # --- Handle Errors ---
         if error_msg:
             logger.error(f"MemoryAgent Error: {error_msg} (From: {sender.name}, Content: {content[:200]}...)")
             self.send(message=error_msg, receiver=sender)
-            return True, None # Indicate message handled (by sending error)
+            return True, None
 
         # Fallback if something unexpected happens
         logger.warning(f"Memory agent handler reached unexpected state for action '{action}'.")
-        return False, None # Let AutoGen handle if needed
-
+        return False, None 
 
 # --- Agent Creation Functions ---
 
@@ -205,7 +198,7 @@ def create_code_generator_agent(name: str = "code_generator") -> AssistantAgent:
     """Creates the code generation specialist agent."""
     code_generator = AssistantAgent(
         name=name,
-        llm_config=CODE_GEN_LLM_CONFIG, # Get pre-selected config
+        llm_config=CODE_GEN_LLM_CONFIG, 
         system_message=textwrap.dedent(
             f"""
             You are a specialized Python code generation assistant using {CODE_GEN_LLM_NAME}.
@@ -222,7 +215,7 @@ def create_planner_agent(name: str = "planner", memory_agent_name: str = "memory
     """Creates the central planner agent."""
     planner = AssistantAgent(
         name=name,
-        llm_config=PLANNER_LLM_CONFIG, # Get pre-selected config
+        llm_config=PLANNER_LLM_CONFIG,
         system_message=textwrap.dedent(
             f"""
             You are a central planner agent using {PLANNER_LLM_NAME}. Orchestrate tasks using tools to interact with specialist agents: {memory_agent_name}, {code_gen_name}, {exec_name}.

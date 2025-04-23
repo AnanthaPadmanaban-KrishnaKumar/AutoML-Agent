@@ -1,10 +1,7 @@
-# services.py
 import logging
 import pinecone
 from openai import OpenAI, APIError
 from typing import Optional
-
-# Import specific config values needed
 from config import ENV_VARS, logger
 
 def initialize_pinecone() -> Optional[pinecone.Index]:
@@ -21,9 +18,7 @@ def initialize_pinecone() -> Optional[pinecone.Index]:
         pinecone.init(api_key=api_key, environment=environment)
         if index_name not in pinecone.list_indexes():
             logger.warning(f"Pinecone index '{index_name}' not found. Please create it.")
-            # Depending on requirements, you might raise an error or return None
-            # raise ValueError(f"Pinecone index '{index_name}' not found.")
-            return None # Or handle index creation if desired/safe
+            return None
 
         index = pinecone.Index(index_name)
         stats = index.describe_index_stats()
@@ -31,7 +26,7 @@ def initialize_pinecone() -> Optional[pinecone.Index]:
         return index
     except Exception as e:
         logger.error(f"Failed to initialize Pinecone or connect to index '{index_name}': {e}", exc_info=True)
-        return None # Or raise the exception: raise
+        return None 
 
 def initialize_openai() -> Optional[OpenAI]:
     """Initializes the OpenAI client."""
@@ -41,15 +36,15 @@ def initialize_openai() -> Optional[OpenAI]:
          return None
     try:
         client = OpenAI(api_key=api_key)
-        client.models.list() # Test connection
+        client.models.list() 
         logger.info("OpenAI client initialized successfully.")
         return client
     except APIError as e:
         logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
-        return None # Or raise the exception: raise
+        return None
     except Exception as e:
         logger.error(f"An unexpected error occurred during OpenAI initialization: {e}", exc_info=True)
-        return None # Or raise
+        return None
 
 # Initialize services on import
 pinecone_index: Optional[pinecone.Index] = initialize_pinecone()

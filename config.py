@@ -10,7 +10,6 @@ load_dotenv()
 # --- Constants ---
 EMBEDDING_MODEL = "text-embedding-ada-002"
 
-
 PINECONE_TOP_K = 5
 CODE_EXECUTION_DIR = "coding"
 CODE_EXEC_TIMEOUT = 120
@@ -21,7 +20,6 @@ GPT4O_MODEL = "gpt-4o"
 DEEPSEEK_CHAT_MODEL = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 CLAUDE_SONNET_MODEL = "claude-3-5-sonnet-20240620"
-
 
 # --- Logging Setup ---
 def setup_logging(level: int = logging.INFO) -> logging.Logger:
@@ -97,7 +95,6 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
 # Load and validate environment variables on import
 ENV_VARS = load_and_validate_envs()
 
-
 # --- LLM Configurations ---
 def get_llm_configs(env_vars: Dict[str, Optional[str]]) -> Dict[str, Optional[Dict[str, Any]]]:
     """Builds LLM configuration dictionaries based *only* on validated, available API keys."""
@@ -142,7 +139,6 @@ def get_llm_configs(env_vars: Dict[str, Optional[str]]) -> Dict[str, Optional[Di
 
 # Prepare configurations based on validated environment variables
 LLM_CONFIGS = get_llm_configs(ENV_VARS)
-
 
 # --- Select Specific LLM Configurations for Agent Roles ---
 def select_agent_llms(
@@ -195,7 +191,6 @@ except APIError as e:
 except Exception as e:
     logger.error(f"An unexpected error occurred during OpenAI client initialization: {e}", exc_info=True) 
     raise RuntimeError(f"Unexpected error initializing OpenAI client: {e}") from e
-
 
 # --- Final Check and Export Summary ---
 logger.info("Configuration loading and setup complete.")

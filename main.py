@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 
 def register_termination_handlers(agents: list):
     """Registers the termination message handler for relevant agents."""
-    from autogen import Agent # Local import to avoid potential startup issues if autogen fails
+    from autogen import Agent
     for agent in agents:
          if hasattr(agent, 'register_reply'):
               logger.debug(f"Registering termination handler for {agent.name}")
               agent.register_reply(
-                   Agent, # Register for messages from any agent
+                   Agent,
                    reply_func=lambda messages, sender, config: (True, "TERMINATE") if is_termination_msg(messages[-1].get("content")) else (False, None),
                    config={},
                    trigger=lambda msg: is_termination_msg(msg.get("content") if isinstance(msg, dict) else msg) # Check trigger based on content
@@ -37,7 +37,6 @@ def run_chat():
     logger.info("--- Starting Multi-Agent Chat ---")
 
     # --- Instantiate Agents ---
-    # Order might matter depending on dependencies passed during init
     try:
         memory_agent = PineconeMemoryAgent(
             name="memory_manager",
@@ -60,7 +59,6 @@ def run_chat():
 
 
     # --- Register Planner Tools ---
-    # Use functools.partial to pass necessary agent instances to tool functions
     try:
         function_map = {
             "store_texts_in_memory": functools.partial(
@@ -91,10 +89,6 @@ def run_chat():
         print(f"\n🚨 Error: Could not register tools for the Planner agent. Check logs. Error: {e}")
         sys.exit(1)
 
-    # --- Register Termination Handlers ---
-    # Handle termination across agents if needed, user_proxy primarily handles it
-    # register_termination_handlers([user_proxy, planner_agent]) # Example
-
     # --- Display System Info ---
     print(f"\n🤖 AutoGen Multi-Agent System Initialized 🤖")
     print(f"------------------------------------------")
@@ -124,10 +118,10 @@ def run_chat():
 if __name__ == "__main__":
     try:
         run_chat()
-    except ValueError as ve: # Catch configuration errors specifically
+    except ValueError as ve:
         logger.critical(f"Configuration error: {ve}", exc_info=True)
         print(f"\n🚨 Configuration Error: {ve}. Please check your .env file and setup.")
-    except RuntimeError as rte: # Catch service initialization errors
+    except RuntimeError as rte:
         logger.critical(f"Runtime error: {rte}", exc_info=True)
         print(f"\n🚨 Runtime Error: {rte}. Please check external service connections and logs.")
     except ImportError as ie:
@@ -137,6 +131,5 @@ if __name__ == "__main__":
         logger.critical(f"An unexpected error occurred in main: {e}", exc_info=True)
         print(f"\n🚨 An unexpected error occurred. Check logs. Error: {e}")
     finally:
-        # Optional cleanup (e.g., pinecone.deinit())
         print("\n👋 Session terminated.")
         logging.shutdown() 
