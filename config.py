@@ -1,3 +1,5 @@
+# config.py
+
 import os
 import logging
 from typing import Dict, Any, Optional, Tuple
@@ -9,12 +11,14 @@ load_dotenv()
 
 # --- Constants ---
 EMBEDDING_MODEL = "text-embedding-ada-002"
+DEFAULT_EMBEDDING_DIMENSION = 1536
+DEFAULT_PINECONE_METRIC = "cosine" 
 
 PINECONE_TOP_K = 5
 CODE_EXECUTION_DIR = "coding"
 CODE_EXEC_TIMEOUT = 120
 
-# LLM Model Identifiers (Use the official identifiers)
+# LLM Model Identifiers 
 # Planner options
 GPT4O_MODEL = "gpt-4o"
 DEEPSEEK_CHAT_MODEL = "deepseek-chat"
@@ -27,11 +31,11 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S' 
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    logger = logging.getLogger("ConfigSetup") 
-    logger.setLevel(level) 
+    logger = logging.getLogger("ConfigSetup")
+    logger.setLevel(level)
     return logger
 
 # Initialize logger for setup messages
@@ -42,6 +46,7 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
     """
     Loads environment variables from .env and validates them based on
     strict requirements for Planner, Code Generator, Embeddings, and Memory.
+    Also loads configuration needed for potential index creation.
     """
     logger.info("Loading environment variables from .env file...")
     envs = {
@@ -49,6 +54,10 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
         "PINECONE_API_KEY": os.getenv("PINECONE_API_KEY"),
         "PINECONE_ENVIRONMENT": os.getenv("PINECONE_ENVIRONMENT"),
         "PINECONE_INDEX_NAME": os.getenv("PINECONE_INDEX_NAME"),
+        # <<< START ADDED VARS FOR INDEX CREATION >>>
+        "PINECONE_VECTOR_DIMENSION": os.getenv("PINECONE_VECTOR_DIMENSION"),
+        "PINECONE_METRIC": os.getenv("PINECONE_METRIC"),
+        # <<< END ADDED VARS FOR INDEX CREATION >>>
         "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
         "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
     }
@@ -62,6 +71,31 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
     missing_pinecone = [k for k in pinecone_keys if not envs[k]]
     if missing_pinecone:
         errors.append(f"Missing Pinecone configuration: {', '.join(missing_pinecone)}")
+
+    # <<< START ADDED VALIDATION FOR DIMENSION >>>
+    # Validate dimension is present if Pinecone keys are present (needed for creation)
+    if not missing_pinecone and not envs["PINECONE_VECTOR_DIMENSION"]:
+         # Try to use default if model matches
+         if EMBEDDING_MODEL == "text-embedding-ada-002":
+              logger.warning(f"PINECONE_VECTOR_DIMENSION not set in .env, using default {DEFAULT_EMBEDDING_DIMENSION} for {EMBEDDING_MODEL}.")
+              envs["PINECONE_VECTOR_DIMENSION"] = str(DEFAULT_EMBEDDING_DIMENSION) # Store as string like os.getenv
+         else:
+              errors.append(f"Missing PINECONE_VECTOR_DIMENSION (required for creating Pinecone index with model {EMBEDDING_MODEL})")
+    elif envs["PINECONE_VECTOR_DIMENSION"]:
+         # Validate it's a number if provided
+         try:
+              int(envs["PINECONE_VECTOR_DIMENSION"])
+         except (ValueError, TypeError):
+              errors.append("PINECONE_VECTOR_DIMENSION must be a valid integer.")
+    # <<< END ADDED VALIDATION FOR DIMENSION >>>
+
+    # <<< START ADDED HANDLING FOR METRIC >>>
+    # Set default metric if not provided
+    if not envs["PINECONE_METRIC"]:
+        logger.info(f"PINECONE_METRIC not set in .env, using default '{DEFAULT_PINECONE_METRIC}'.")
+        envs["PINECONE_METRIC"] = DEFAULT_PINECONE_METRIC # Store the default
+    # <<< END ADDED HANDLING FOR METRIC >>>
+
 
     # 2. OpenAI (Embeddings are always needed)
     if not envs["OPENAI_API_KEY"]:
@@ -110,27 +144,27 @@ def get_llm_configs(env_vars: Dict[str, Optional[str]]) -> Dict[str, Optional[Di
         configs["openai_gpt4o"] = {
             "model": GPT4O_MODEL,
             "api_key": env_vars["OPENAI_API_KEY"],
-            "temperature": 0.2, 
+            "temperature": 0.2,
         }
         logger.info(f"OpenAI ({GPT4O_MODEL}) config prepared.")
 
-    # Anthropic Config 
+    # Anthropic Config
     if env_vars["ANTHROPIC_API_KEY"]:
         configs["claude_sonnet"] = {
             "model": CLAUDE_SONNET_MODEL,
             "api_key": env_vars["ANTHROPIC_API_KEY"],
-            "temperature": 0.1, 
+            "temperature": 0.1,
         }
         logger.info(f"Anthropic ({CLAUDE_SONNET_MODEL}) config prepared.")
 
-    # DeepSeek Config 
+    # DeepSeek Config
     if env_vars["DEEPSEEK_API_KEY"]:
         configs["deepseek"] = {
             "model": DEEPSEEK_CHAT_MODEL,
             "api_key": env_vars["DEEPSEEK_API_KEY"],
             "base_url": DEEPSEEK_BASE_URL,
             "temperature": 0.2,
-            "api_type": "openai", 
+            "api_type": "openai",
         }
         logger.info(f"DeepSeek ({DEEPSEEK_CHAT_MODEL}) config prepared.")
 
@@ -177,20 +211,6 @@ def select_agent_llms(
 
 # Assign the selected configurations and names to be exported
 PLANNER_LLM_CONFIG, PLANNER_LLM_NAME, CODE_GEN_LLM_CONFIG, CODE_GEN_LLM_NAME = select_agent_llms(LLM_CONFIGS)
-
-
-# --- Initialize and Export OpenAI Client (for Embeddings) ---
-try:
-    logger.info(f"Initializing OpenAI client for embeddings (using model: {EMBEDDING_MODEL})...")
-    OPENAI_CLIENT = OpenAI(api_key=ENV_VARS["OPENAI_API_KEY"])
-    OPENAI_CLIENT.models.list(limit=1)
-    logger.info("OpenAI client initialized successfully for embeddings.")
-except APIError as e:
-    logger.error(f"OpenAI API Error during client initialization (check API key and network): {e}", exc_info=False)
-    raise RuntimeError(f"Failed to initialize OpenAI client needed for embeddings: {e}") from e
-except Exception as e:
-    logger.error(f"An unexpected error occurred during OpenAI client initialization: {e}", exc_info=True) 
-    raise RuntimeError(f"Unexpected error initializing OpenAI client: {e}") from e
 
 # --- Final Check and Export Summary ---
 logger.info("Configuration loading and setup complete.")

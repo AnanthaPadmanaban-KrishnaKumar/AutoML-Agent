@@ -1,4 +1,3 @@
-# tools.py
 import json
 import logging
 from typing import List, Dict, Any
@@ -85,7 +84,7 @@ def execute_python_code(code: str, planner_agent: 'Agent', executor_agent: 'Agen
     if cleaned_code.endswith("```"):
         cleaned_code = cleaned_code[:-len("```")].strip()
     if cleaned_code.startswith("```") and cleaned_code.endswith("```"):
-         if len(cleaned_code) > 
+         if len(cleaned_code):
               cleaned_code = cleaned_code[3:-3].strip()
 
     if not cleaned_code:
