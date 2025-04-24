@@ -25,7 +25,7 @@ from config import (
 from services import pinecone_index, openai_client
 
 # --- Custom Memory Agent Definition ---
-class PineconeMemoryAgent(Agent):
+class PineconeMemoryAgent(ConversableAgent):
     """
     Agent for storing/retrieving text data using Pinecone vector embeddings.
     Handles JSON requests for STORE and RETRIEVE actions.
@@ -178,6 +178,22 @@ class PineconeMemoryAgent(Agent):
 
 # --- Agent Creation Functions ---
 
+# def create_executor_agent(name: str = "executor") -> UserProxyAgent:
+#     """Creates the code execution agent."""
+#     os.makedirs(CODE_EXECUTION_DIR, exist_ok=True)
+#     executor = UserProxyAgent(
+#         name=name,
+#         human_input_mode="NEVER",
+#         llm_config=False,
+#         code_execution_config={
+#             "executor": LocalCommandLineCodeExecutor(timeout=CODE_EXEC_TIMEOUT, work_dir=CODE_EXECUTION_DIR),
+#             "use_docker": False # Set to True if Docker is preferred and installed
+#         },
+#         system_message="You are a code executor. You receive Python code, execute it, and return the result. Prefix the output with EXECUTION_SUCCESS: or EXECUTION_FAILED:. Provide the full stdout and stderr in case of failure.",
+#     )
+#     logger.info(f"Executor agent '{name}' initialized (Work Dir: ./{CODE_EXECUTION_DIR}).")
+#     return executor
+
 def create_executor_agent(name: str = "executor") -> UserProxyAgent:
     """Creates the code execution agent."""
     os.makedirs(CODE_EXECUTION_DIR, exist_ok=True)
@@ -186,14 +202,15 @@ def create_executor_agent(name: str = "executor") -> UserProxyAgent:
         human_input_mode="NEVER",
         llm_config=False,
         code_execution_config={
+            # Provide the executor instance directly
             "executor": LocalCommandLineCodeExecutor(timeout=CODE_EXEC_TIMEOUT, work_dir=CODE_EXECUTION_DIR),
-            "use_docker": False # Set to True if Docker is preferred and installed
+            # Remove the "use_docker" key from this level
         },
         system_message="You are a code executor. You receive Python code, execute it, and return the result. Prefix the output with EXECUTION_SUCCESS: or EXECUTION_FAILED:. Provide the full stdout and stderr in case of failure.",
     )
     logger.info(f"Executor agent '{name}' initialized (Work Dir: ./{CODE_EXECUTION_DIR}).")
     return executor
-
+    
 def create_code_generator_agent(name: str = "code_generator") -> AssistantAgent:
     """Creates the code generation specialist agent."""
     code_generator = AssistantAgent(

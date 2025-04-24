@@ -11,14 +11,15 @@ load_dotenv()
 
 # --- Constants ---
 EMBEDDING_MODEL = "text-embedding-ada-002"
-DEFAULT_EMBEDDING_DIMENSION = 1536
-DEFAULT_PINECONE_METRIC = "cosine" 
+DEFAULT_EMBEDDING_DIMENSION = 1536 # Default dimension for the default model
+DEFAULT_PINECONE_METRIC = "cosine" # Default metric if not specified in .env
+DEFAULT_PINECONE_CLOUD = "aws" # Default cloud provider if not specified
 
 PINECONE_TOP_K = 5
 CODE_EXECUTION_DIR = "coding"
 CODE_EXEC_TIMEOUT = 120
 
-# LLM Model Identifiers 
+# LLM Model Identifiers (Use the official identifiers)
 # Planner options
 GPT4O_MODEL = "gpt-4o"
 DEEPSEEK_CHAT_MODEL = "deepseek-chat"
@@ -52,12 +53,11 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
     envs = {
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
         "PINECONE_API_KEY": os.getenv("PINECONE_API_KEY"),
-        "PINECONE_ENVIRONMENT": os.getenv("PINECONE_ENVIRONMENT"),
+        "PINECONE_ENVIRONMENT": os.getenv("PINECONE_ENVIRONMENT"), # Used as region
         "PINECONE_INDEX_NAME": os.getenv("PINECONE_INDEX_NAME"),
-        # <<< START ADDED VARS FOR INDEX CREATION >>>
         "PINECONE_VECTOR_DIMENSION": os.getenv("PINECONE_VECTOR_DIMENSION"),
         "PINECONE_METRIC": os.getenv("PINECONE_METRIC"),
-        # <<< END ADDED VARS FOR INDEX CREATION >>>
+        "PINECONE_CLOUD": os.getenv("PINECONE_CLOUD"), # Added for index spec
         "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
         "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
     }
@@ -72,7 +72,6 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
     if missing_pinecone:
         errors.append(f"Missing Pinecone configuration: {', '.join(missing_pinecone)}")
 
-    # <<< START ADDED VALIDATION FOR DIMENSION >>>
     # Validate dimension is present if Pinecone keys are present (needed for creation)
     if not missing_pinecone and not envs["PINECONE_VECTOR_DIMENSION"]:
          # Try to use default if model matches
@@ -87,14 +86,16 @@ def load_and_validate_envs() -> Dict[str, Optional[str]]:
               int(envs["PINECONE_VECTOR_DIMENSION"])
          except (ValueError, TypeError):
               errors.append("PINECONE_VECTOR_DIMENSION must be a valid integer.")
-    # <<< END ADDED VALIDATION FOR DIMENSION >>>
 
-    # <<< START ADDED HANDLING FOR METRIC >>>
     # Set default metric if not provided
     if not envs["PINECONE_METRIC"]:
         logger.info(f"PINECONE_METRIC not set in .env, using default '{DEFAULT_PINECONE_METRIC}'.")
         envs["PINECONE_METRIC"] = DEFAULT_PINECONE_METRIC # Store the default
-    # <<< END ADDED HANDLING FOR METRIC >>>
+
+    # Set default cloud if not provided
+    if not envs["PINECONE_CLOUD"]:
+        logger.info(f"PINECONE_CLOUD not set in .env, using default '{DEFAULT_PINECONE_CLOUD}'.")
+        envs["PINECONE_CLOUD"] = DEFAULT_PINECONE_CLOUD # Store the default
 
 
     # 2. OpenAI (Embeddings are always needed)
@@ -194,6 +195,7 @@ def select_agent_llms(
         planner_name = f"DeepSeek {DEEPSEEK_CHAT_MODEL}"
         logger.info(f"Planner Agent will use fallback: {planner_name}")
     else:
+        # This case should ideally not be reached due to earlier validation
         logger.critical("PANIC: No valid configuration found for Planner Agent despite passing validation.")
         raise RuntimeError("Configuration error: No LLM available for Planner.")
 
@@ -203,6 +205,7 @@ def select_agent_llms(
         code_gen_name = f"Claude {CLAUDE_SONNET_MODEL}"
         logger.info(f"Code Generator Agent will use required choice: {code_gen_name}")
     else:
+        # This case should ideally not be reached due to earlier validation
         logger.critical(f"PANIC: Required Claude Sonnet ({CLAUDE_SONNET_MODEL}) config not found despite passing validation.")
         raise RuntimeError(f"Configuration error: Required LLM ({CLAUDE_SONNET_MODEL}) for Code Generator not available.")
 
